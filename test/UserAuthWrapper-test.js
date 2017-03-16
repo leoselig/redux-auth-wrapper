@@ -715,4 +715,37 @@ describe('UserAuthWrapper', () => {
     expect(store.getState().routing.locationBeforeTransitions.search).to.equal('?param=foo')
     expect(store.getState().routing.locationBeforeTransitions.query).to.deep.equal({ param: 'foo' })
   })
+
+  it('redirection preserves hash', () => {
+    const LoginWrapper = UserAuthWrapper({
+      authSelector: state => state.user,
+      redirectAction: routerActions.replace,
+      wrapperDisplayName: 'LoginWrapper',
+      predicate: _.isEmpty,
+      failureRedirectPath: (state, ownProps) => ownProps.location.query.redirect || '/',
+      allowRedirectBack: false
+    })
+
+    const routes = (
+      <Route path="/" component={App} >
+        <Route path="login" component={LoginWrapper(UnprotectedComponent)} />
+        <Route path="protected" component={UserIsAuthenticated(UnprotectedComponent)} />
+      </Route>
+    )
+
+    const { history, store } = setupTest(routes)
+
+    expect(store.getState().routing.locationBeforeTransitions.pathname).to.equal('/')
+    expect(store.getState().routing.locationBeforeTransitions.search).to.equal('')
+
+    history.push('/protected#bar')
+    expect(store.getState().routing.locationBeforeTransitions.pathname).to.equal('/login')
+    expect(store.getState().routing.locationBeforeTransitions.search).to.equal('?redirect=%2Fprotected%23bar')
+    expect(store.getState().routing.locationBeforeTransitions.hash).to.deep.equal('#bar')
+
+    store.dispatch(userLoggedIn())
+    expect(store.getState().routing.locationBeforeTransitions.pathname).to.equal('/protected')
+    expect(store.getState().routing.locationBeforeTransitions.search).to.deep.equal('')
+    expect(store.getState().routing.locationBeforeTransitions.hash).to.deep.equal('#bar')
+  })
 })
